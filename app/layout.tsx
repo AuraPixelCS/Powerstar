@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Schibsted_Grotesk, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
-import "./site.css";
-import { Providers } from "./providers";
 
 const schibstedGrotesk = Schibsted_Grotesk({
   variable: "--font-schibsted-grotesk",
@@ -37,12 +35,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      data-theme="red"
       suppressHydrationWarning
-      className={`${schibstedGrotesk.variable} ${hankenGrotesk.variable} ${ibmPlexMono.variable} hero-dark antialiased`}
+      className={`${schibstedGrotesk.variable} ${hankenGrotesk.variable} ${ibmPlexMono.variable} antialiased`}
+      style={{ background: "#05070d" }}
     >
-      <body suppressHydrationWarning>
-        <Providers>{children}</Providers>
+      <body suppressHydrationWarning style={{ margin: 0, background: "#05070d", overflow: "hidden" }}>
+        {children}
       </body>
     </html>
   );

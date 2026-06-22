@@ -348,15 +348,27 @@ function Rig() {
 
 export function WebGLSite() {
   return (
+    <div
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        width: "100vw",
+        height: "100dvh",
+        background: "#05070d",
+        overflow: "hidden",
+      }}
+    >
     <Canvas
       gl={{ antialias: true }}
       dpr={[1, 2]}
       camera={{ position: [0, 0, 5], fov: 42 }}
+      resize={{ debounce: 0 }}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color("#05070d");
         scene.fog = new THREE.FogExp2("#05070d", 0.05);
       }}
-      style={{ position: "fixed", inset: 0 }}
+      style={{ width: "100%", height: "100%", display: "block" }}
     >
       <ambientLight intensity={0.35} />
       <directionalLight position={[4, 3, 5]} intensity={2.4} color="#fff4e6" />
@@ -380,5 +392,6 @@ export function WebGLSite() {
       </EffectComposer>
       <AdaptiveDpr pixelated />
     </Canvas>
+    </div>
   );
 }
