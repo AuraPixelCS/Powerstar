@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Text, Stars, useTexture, RoundedBox } from "@react-three/drei";
-import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import {
   STATS, WHY, FAQ, WA_QUOTE, TEL, TEL_HREF, EMAIL, ADDRESS,
@@ -145,7 +144,7 @@ function Nav() {
     fragmentShader: `uniform sampler2D map;varying vec2 vUv;void main(){float a=texture2D(map,vUv).a;gl_FragColor=vec4(1.0,1.0,1.0,a);}`,
     transparent: true, depthTest: false, depthWrite: false,
   }), [logo]);
-  const lw = Math.min(width * 0.22, 2.4);
+  const lw = Math.min(width * 0.26, 2.9);
   const lh = lw * (202 / 1762);
   return (
     <mesh material={mat} renderOrder={20} position={[-width / 2 + lw / 2 + width * 0.045, height / 2 - lh / 2 - height * 0.06, 1]}>
@@ -364,20 +363,21 @@ function World({ progressRef, pages, children }: { progressRef: PRef; pages: num
 export function WebGLSite({ progressRef, pages, width, height }: { progressRef: PRef; pages: number; width: number; height: number }) {
   return (
     <Canvas
-      gl={{ antialias: true }}
-      dpr={[1, 1.5]}
+      gl={{ antialias: true, powerPreference: "high-performance" }}
+      dpr={[1, 1.25]}
       camera={{ position: [0, 0, 5], fov: 42 }}
       resize={{ offsetSize: true }}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color("#05070d");
         scene.fog = new THREE.FogExp2("#05070d", 0.045);
       }}
+      frameloop="always"
       style={{ width: `${width}px`, height: `${height}px`, display: "block" }}
     >
       <SyncSize width={width} height={height} />
       <ambientLight intensity={0.4} />
       <directionalLight position={[4, 3, 5]} intensity={2.4} color="#fff4e6" />
-      <Stars radius={80} depth={40} count={2600} factor={4} saturation={0} fade speed={0.25} />
+      <Stars radius={80} depth={40} count={1600} factor={4} saturation={0} fade speed={0.25} />
       <Suspense fallback={null}>
         <Nav />
         <World progressRef={progressRef} pages={pages}>
@@ -401,10 +401,6 @@ export function WebGLSite({ progressRef, pages, width, height }: { progressRef: 
           </SceneSection>
         </World>
       </Suspense>
-      <EffectComposer>
-        <Bloom mipmapBlur intensity={0.7} luminanceThreshold={0.6} luminanceSmoothing={0.2} />
-        <Vignette offset={0.22} darkness={0.82} />
-      </EffectComposer>
     </Canvas>
   );
 }
