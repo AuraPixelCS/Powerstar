@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useState, type RefObject } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Text, Stars, useTexture, RoundedBox, AdaptiveDpr } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -316,6 +316,31 @@ function Contact({ page }: { page: number }) {
   );
 }
 
+/* Force the renderer to the true window size on mount + a few frames after,
+   so it never gets stuck at a half/transient measurement until the first resize. */
+function ForceResize() {
+  const setSize = useThree((s) => s.setSize);
+  useEffect(() => {
+    const fix = () => setSize(window.innerWidth, window.innerHeight);
+    fix();
+    const r1 = requestAnimationFrame(fix);
+    const r2 = requestAnimationFrame(() => requestAnimationFrame(fix));
+    const t1 = setTimeout(fix, 80);
+    const t2 = setTimeout(fix, 350);
+    window.addEventListener("resize", fix);
+    window.addEventListener("orientationchange", fix);
+    return () => {
+      cancelAnimationFrame(r1);
+      cancelAnimationFrame(r2);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      window.removeEventListener("resize", fix);
+      window.removeEventListener("orientationchange", fix);
+    };
+  }, [setSize]);
+  return null;
+}
+
 function World({ progressRef, pages, children }: { progressRef: PRef; pages: number; children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null);
   const { height } = useVP();
@@ -338,6 +363,7 @@ export function WebGLSite({ progressRef, pages }: { progressRef: PRef; pages: nu
       }}
       style={{ width: "100%", height: "100%", display: "block" }}
     >
+      <ForceResize />
       <ambientLight intensity={0.4} />
       <directionalLight position={[4, 3, 5]} intensity={2.4} color="#fff4e6" />
       <Stars radius={80} depth={40} count={2600} factor={4} saturation={0} fade speed={0.25} />
