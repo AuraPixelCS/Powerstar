@@ -1,5 +1,11 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Reveal } from "./Reveal";
+
+gsap.registerPlugin(ScrollTrigger);
 
 type Service = {
   idx: string;
@@ -7,7 +13,6 @@ type Service = {
   desc: string;
   icon: ReactNode;
   feature?: boolean;
-  delay?: 1 | 2 | 3;
 };
 
 const SERVICES: Service[] = [
@@ -26,7 +31,6 @@ const SERVICES: Service[] = [
     idx: "02",
     title: "Air Freight",
     desc: "Speed & security with global reach for urgent and sensitive cargo.",
-    delay: 1,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M2 12l20-7-7 20-3-8-10-5z" />
@@ -37,7 +41,6 @@ const SERVICES: Service[] = [
     idx: "03",
     title: "Domestic Distribution",
     desc: "Last-mile, door-to-door delivery with real-time updates.",
-    delay: 2,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M1 6h13v9H1zM14 9h4l3 3v3h-7M5.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM17.5 18a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
@@ -58,7 +61,6 @@ const SERVICES: Service[] = [
     idx: "05",
     title: "Cargo Insurance",
     desc: "Total all-risk protection guarding your assets against loss or damage.",
-    delay: 1,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <path d="M12 2l8 3v6c0 5-3.5 8.5-8 11-4.5-2.5-8-6-8-11V5z" />
@@ -70,7 +72,6 @@ const SERVICES: Service[] = [
     idx: "06",
     title: "Book & Plan",
     desc: "Optional scheduling so shipment dates meet your buyers' deadlines.",
-    delay: 2,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <rect x="3" y="4" width="18" height="17" rx="2" />
@@ -92,7 +93,6 @@ const SERVICES: Service[] = [
     idx: "08",
     title: "Halal Logistics",
     desc: "Certified Halal compliance, with integrity from customs to final delivery.",
-    delay: 1,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
         <circle cx="12" cy="12" r="9" />
@@ -103,13 +103,36 @@ const SERVICES: Service[] = [
 ];
 
 export function Services() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const section = sectionRef.current;
+    const track = trackRef.current;
+    if (!section || !track) return;
+
+    const mm = gsap.matchMedia();
+    // Desktop: pin the section and scrub the cards horizontally (the "conveyor").
+    mm.add("(min-width: 900px)", () => {
+      const distance = () => Math.max(0, track.scrollWidth - window.innerWidth + 80);
+      const tween = gsap.to(track, { x: () => -distance(), ease: "none" });
+      ScrollTrigger.create({
+        trigger: section,
+        start: "top top",
+        end: () => "+=" + distance(),
+        pin: true,
+        scrub: 1,
+        anticipatePin: 1,
+        animation: tween,
+        invalidateOnRefresh: true,
+      });
+    });
+    return () => mm.revert();
+  }, []);
+
   return (
-    <section
-      className="block section-pad"
-      id="services"
-      style={{ background: "var(--paper-2)" }}
-    >
-      <div className="wrap">
+    <section ref={sectionRef} id="services" className="svc-section">
+      <div className="wrap svc-head">
         <Reveal className="section-head">
           <p className="eyebrow">Services</p>
           <h2>All your logistics. One trusted roof.</h2>
@@ -118,22 +141,17 @@ export function Services() {
             warehousing, insurance and Halal-certified handling.
           </p>
         </Reveal>
+      </div>
 
-        <div className="svc-grid">
-          {SERVICES.map((s) => (
-            <Reveal
-              as="article"
-              key={s.idx}
-              delay={s.delay}
-              className={`svc${s.feature ? " feature" : ""}`}
-            >
-              <div className="idx">{s.idx}</div>
-              <div className="ico">{s.icon}</div>
-              <h3>{s.title}</h3>
-              <p>{s.desc}</p>
-            </Reveal>
-          ))}
-        </div>
+      <div className="svc-rail" ref={trackRef}>
+        {SERVICES.map((s) => (
+          <article key={s.idx} className={`svc svc-card${s.feature ? " feature" : ""}`}>
+            <div className="idx">{s.idx}</div>
+            <div className="ico">{s.icon}</div>
+            <h3>{s.title}</h3>
+            <p>{s.desc}</p>
+          </article>
+        ))}
       </div>
     </section>
   );

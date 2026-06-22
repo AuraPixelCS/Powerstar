@@ -330,6 +330,28 @@ section.block { position: relative; z-index: 2; background: var(--paper); }
 @media (max-width: 980px){ .svc-grid { grid-template-columns: repeat(2,1fr);} .svc.feature{ grid-column: span 2;} }
 @media (max-width: 560px){ .svc-grid { grid-template-columns: 1fr;} .svc.feature{ grid-column: span 1;} }
 
+/* horizontal "conveyor" services — scroll-driven (pinned + scrubbed on desktop) */
+.svc-section {
+  position: relative; z-index: 2; background: var(--paper-2);
+  overflow: hidden; height: 100vh;
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(28px, 5vh, 56px);
+}
+.svc-head { width: 100%; }
+.svc-rail {
+  display: flex; align-items: stretch; gap: 20px;
+  padding-inline: var(--gutter);
+  width: max-content; will-change: transform;
+}
+.svc-card { flex: 0 0 auto; width: clamp(280px, 23vw, 350px); min-height: 320px; }
+.svc-card.feature { width: clamp(360px, 34vw, 540px); }
+
+@media (max-width: 899px) {
+  .svc-section { height: auto; display: block; overflow: visible; padding-block: clamp(80px, 12vh, 150px); }
+  .svc-rail { flex-wrap: wrap; width: auto; transform: none !important; margin-top: 40px; gap: 16px; padding-inline: 0; }
+  .svc-card, .svc-card.feature { width: 100%; min-height: 0; }
+}
+
 /* why us — split */
 .split { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(36px,5vw,80px); align-items: center; }
 @media (max-width: 880px){ .split { grid-template-columns: 1fr; } }

@@ -1,5 +1,6 @@
 import { STATS } from "@/lib/site";
 import { Reveal } from "./Reveal";
+import { StatNumber } from "./StatNumber";
 
 export function About() {
   return (
@@ -18,10 +19,7 @@ export function About() {
         <Reveal delay={1} className="stats" style={{ marginTop: 54 }}>
           {STATS.map((s) => (
             <div className="stat" key={s.cap}>
-              <div className="num">
-                {s.num}
-                {s.sup && <small>{s.sup}</small>}
-              </div>
+              <StatNumber value={s.num} sup={s.sup} />
               <div className="cap">{s.cap}</div>
             </div>
           ))}
