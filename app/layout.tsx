@@ -39,7 +39,7 @@ export default function RootLayout({
       className={`${schibstedGrotesk.variable} ${hankenGrotesk.variable} ${ibmPlexMono.variable} antialiased`}
       style={{ background: "#05070d" }}
     >
-      <body suppressHydrationWarning style={{ margin: 0, background: "#05070d", overflow: "hidden" }}>
+      <body suppressHydrationWarning style={{ margin: 0, background: "#05070d" }}>
         {children}
       </body>
     </html>

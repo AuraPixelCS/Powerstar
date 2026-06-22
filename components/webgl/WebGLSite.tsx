@@ -1,77 +1,67 @@
 "use client";
 
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import {
-  ScrollControls,
-  Scroll,
-  useScroll,
-  Text,
-  Stars,
-  useTexture,
-  RoundedBox,
-  AdaptiveDpr,
-} from "@react-three/drei";
+import { Text, Stars, useTexture, RoundedBox, AdaptiveDpr } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
-import { STATS, WHY, WA_QUOTE, TEL, TEL_HREF } from "@/lib/site";
+import {
+  STATS, WHY, FAQ, WA_QUOTE, TEL, TEL_HREF, EMAIL, ADDRESS,
+} from "@/lib/site";
 
+type PRef = RefObject<number>;
+
+/* ---- type system (editorial / exaggerated minimalism on dark) ---- */
 const DISPLAY = "/fonts/SchibstedGrotesk.ttf";
 const BODY = "/fonts/HankenGrotesk.ttf";
-const RED = "#ff2a2a";
-const GOLD = "#f2b23c";
-const INK = "#aeb8c4";
-const PAGES = 5;
+const WHITE = "#f5f7fa";
+const INK = "#93a1b2";
+const RED = "#ff2e2e";
+const GOLD = "#f4b740";
+const CARD = "#0d1422";
 
 const open = (url: string) => window.open(url, "_blank", "noopener");
-const useViewport = () => useThree((s) => s.viewport);
+const useVP = () => useThree((s) => s.viewport);
+
+const SERVICES = [
+  { t: "Sea Freight", d: "Full-container, LCL & break-bulk across every trade lane." },
+  { t: "Air Freight", d: "Speed & security for urgent, sensitive cargo." },
+  { t: "Domestic Distribution", d: "Last-mile, door-to-door with live updates." },
+  { t: "Warehouse", d: "Secure, flexible storage & inventory support." },
+  { t: "Cargo Insurance", d: "All-risk protection against loss or damage." },
+  { t: "Book & Plan", d: "Scheduling that meets your buyers' deadlines." },
+  { t: "Transparent Pricing", d: "All-inclusive quotes, every step covered." },
+  { t: "Halal Logistics", d: "Certified Halal integrity, customs to delivery." },
+];
 
 /* ---------------- globe ---------------- */
 const Rg = 1;
 function latLng(lat: number, lng: number, r = Rg) {
   const phi = (90 - lat) * (Math.PI / 180);
   const theta = (lng + 180) * (Math.PI / 180);
-  return new THREE.Vector3(
-    -r * Math.sin(phi) * Math.cos(theta),
-    r * Math.cos(phi),
-    r * Math.sin(phi) * Math.sin(theta),
-  );
+  return new THREE.Vector3(-r * Math.sin(phi) * Math.cos(theta), r * Math.cos(phi), r * Math.sin(phi) * Math.sin(theta));
 }
 const HUB = { lat: 3, lng: 101.4 };
 const DESTS = [
-  { lat: 19, lng: 72.8 },
-  { lat: 25, lng: 55.1 },
-  { lat: 31.2, lng: 121.5 },
-  { lat: 35.7, lng: 139.7 },
-  { lat: -33.9, lng: 151.2 },
-  { lat: 51.9, lng: 4.5 },
+  { lat: 19, lng: 72.8 }, { lat: 25, lng: 55.1 }, { lat: 31.2, lng: 121.5 },
+  { lat: 35.7, lng: 139.7 }, { lat: -33.9, lng: 151.2 }, { lat: 51.9, lng: 4.5 },
 ];
 
-function GlobeGroup({ scale = 1.6, position = [0, 0, 0] as [number, number, number] }) {
+function GlobeGroup({ progressRef, scale, position }: { progressRef: PRef; scale: number; position: [number, number, number] }) {
   const [day, clouds, normal, spec] = useTexture([
-    "/textures/earth_atmos_2048.jpg",
-    "/textures/earth_clouds_1024.png",
-    "/textures/earth_normal_2048.jpg",
-    "/textures/earth_specular_2048.jpg",
+    "/textures/earth_atmos_2048.jpg", "/textures/earth_clouds_1024.png",
+    "/textures/earth_normal_2048.jpg", "/textures/earth_specular_2048.jpg",
   ]);
   day.colorSpace = THREE.SRGBColorSpace;
   const earth = useRef<THREE.Group>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
-  const scroll = useScroll();
 
-  const atmosphere = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: { c: { value: new THREE.Color("#4aa3ff") } },
-        vertexShader: `varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-        fragmentShader: `varying vec3 vN;uniform vec3 c;void main(){float i=pow(1.0-abs(vN.z),2.6);gl_FragColor=vec4(c,i);}`,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        side: THREE.BackSide,
-        depthWrite: false,
-      }),
-    [],
-  );
+  const atmosphere = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { c: { value: new THREE.Color("#4aa3ff") } },
+    vertexShader: `varying vec3 vN;void main(){vN=normalize(normalMatrix*normal);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `varying vec3 vN;uniform vec3 c;void main(){float i=pow(1.0-abs(vN.z),2.6);gl_FragColor=vec4(c,i);}`,
+    blending: THREE.AdditiveBlending, transparent: true, side: THREE.BackSide, depthWrite: false,
+  }), []);
 
   const arcs = useMemo(() => {
     const start = latLng(HUB.lat, HUB.lng);
@@ -82,22 +72,17 @@ function GlobeGroup({ scale = 1.6, position = [0, 0, 0] as [number, number, numb
       const pts = new THREE.QuadraticBezierCurve3(start.clone(), mid, end).getPoints(120);
       const geom = new THREE.BufferGeometry().setFromPoints(pts);
       geom.setDrawRange(0, 0);
-      const mat = new THREE.LineBasicMaterial({
-        color: new THREE.Color(i % 3 === 2 ? GOLD : RED),
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-      });
-      return { line: new THREE.Line(geom, mat), geom, total: pts.length, startAt: 0.12 + i * 0.08 };
+      const mat = new THREE.LineBasicMaterial({ color: new THREE.Color(i % 3 === 2 ? GOLD : RED), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false });
+      return { line: new THREE.Line(geom, mat), geom, total: pts.length, startAt: 0.02 + i * 0.012 };
     });
   }, []);
 
   useFrame((_, dt) => {
     if (earth.current) earth.current.rotation.y += dt * 0.05;
     if (cloudRef.current) cloudRef.current.rotation.y += dt * 0.065;
-    const p = scroll.range(0, 1 / PAGES);
+    const p = progressRef.current ?? 0;
     for (const a of arcs) {
-      const ap = THREE.MathUtils.clamp((p - a.startAt) / 0.22, 0, 1);
+      const ap = THREE.MathUtils.clamp((p - a.startAt) / 0.04, 0, 1);
       a.geom.setDrawRange(0, Math.floor(ap * a.total));
     }
   });
@@ -109,145 +94,112 @@ function GlobeGroup({ scale = 1.6, position = [0, 0, 0] as [number, number, numb
           <sphereGeometry args={[Rg, 64, 64]} />
           <meshStandardMaterial map={day} normalMap={normal} roughnessMap={spec} roughness={0.85} metalness={0.05} />
         </mesh>
-        <group>
-          {arcs.map((a, i) => (
-            <primitive key={i} object={a.line} />
-          ))}
-        </group>
+        <group>{arcs.map((a, i) => <primitive key={i} object={a.line} />)}</group>
       </group>
       <mesh ref={cloudRef}>
         <sphereGeometry args={[Rg * 1.012, 64, 64]} />
         <meshStandardMaterial map={clouds} transparent opacity={0.5} depthWrite={false} />
       </mesh>
-      <mesh material={atmosphere}>
-        <sphereGeometry args={[Rg * 1.18, 64, 64]} />
-      </mesh>
+      <mesh material={atmosphere}><sphereGeometry args={[Rg * 1.18, 64, 64]} /></mesh>
     </group>
   );
 }
 
-/* ---------------- clickable button ---------------- */
-function Button3D({
-  label,
-  onClick,
-  position,
-  width = 1.6,
-  height = 0.42,
-  color = RED,
-  text = "#ffffff",
-}: {
-  label: string;
-  onClick: () => void;
-  position: [number, number, number];
-  width?: number;
-  height?: number;
-  color?: string;
-  text?: string;
+/* ---------------- button ---------------- */
+function Button3D({ label, onClick, position, width, height, color = RED, text = "#ffffff" }: {
+  label: string; onClick: () => void; position: [number, number, number]; width: number; height: number; color?: string; text?: string;
 }) {
   const [hover, setHover] = useState(false);
   return (
-    <group
-      position={position}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-      onPointerOver={() => {
-        setHover(true);
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        setHover(false);
-        document.body.style.cursor = "auto";
-      }}
-      scale={hover ? 1.05 : 1}
-    >
+    <group position={position} scale={hover ? 1.05 : 1}
+      onClick={(e) => { e.stopPropagation(); onClick(); }}
+      onPointerOver={() => { setHover(true); document.body.style.cursor = "pointer"; }}
+      onPointerOut={() => { setHover(false); document.body.style.cursor = "auto"; }}>
       <RoundedBox args={[width, height, 0.08]} radius={height * 0.45} smoothness={4}>
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={hover ? 0.5 : 0.25} roughness={0.4} />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={hover ? 0.55 : 0.28} roughness={0.4} />
       </RoundedBox>
-      <Text font={DISPLAY} fontSize={height * 0.4} color={text} anchorX="center" anchorY="middle" position={[0, 0, 0.06]}>
+      <Text font={DISPLAY} fontSize={height * 0.36} color={text} anchorX="center" anchorY="middle" position={[0, 0, 0.06]} letterSpacing={-0.01}>
         {label}
       </Text>
     </group>
   );
 }
 
-/* ---------------- fixed nav (HUD) ---------------- */
-function Nav() {
-  const { width, height } = useViewport();
-  const logo = useTexture("/powerstar-logo.png");
-  const whiteLogo = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        uniforms: { map: { value: logo } },
-        vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
-        fragmentShader: `uniform sampler2D map;varying vec2 vUv;void main(){float a=texture2D(map,vUv).a;gl_FragColor=vec4(1.0,1.0,1.0,a);}`,
-        transparent: true,
-        depthTest: false,
-        depthWrite: false,
-      }),
-    [logo],
+/* small helpers for consistent type */
+function Eyebrow({ children, x, y }: { children: string; x: number; y: number }) {
+  const { width } = useVP();
+  return (
+    <Text font={BODY} fontSize={width * 0.0105} color={RED} anchorX="left" anchorY="middle" position={[x, y, 0]} letterSpacing={0.28}>
+      {children.toUpperCase()}
+    </Text>
   );
-  const lw = Math.min(width * 0.24, 2.6);
+}
+
+/* ---------------- nav (fixed HUD) ---------------- */
+function Nav() {
+  const { width, height } = useVP();
+  const logo = useTexture("/powerstar-logo.png");
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: { map: { value: logo } },
+    vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+    fragmentShader: `uniform sampler2D map;varying vec2 vUv;void main(){float a=texture2D(map,vUv).a;gl_FragColor=vec4(1.0,1.0,1.0,a);}`,
+    transparent: true, depthTest: false, depthWrite: false,
+  }), [logo]);
+  const lw = Math.min(width * 0.22, 2.4);
   const lh = lw * (202 / 1762);
   return (
-    <group renderOrder={10}>
-      <mesh
-        material={whiteLogo}
-        position={[-width / 2 + lw / 2 + width * 0.04, height / 2 - lh / 2 - height * 0.06, 1]}
-      >
-        <planeGeometry args={[lw, lh]} />
-      </mesh>
-    </group>
+    <mesh material={mat} renderOrder={20} position={[-width / 2 + lw / 2 + width * 0.045, height / 2 - lh / 2 - height * 0.06, 1]}>
+      <planeGeometry args={[lw, lh]} />
+    </mesh>
   );
 }
 
 /* ---------------- sections ---------------- */
-function Hero() {
-  const { width, height } = useViewport();
-  const big = Math.min(width * 0.058, 0.74);
-  const x = -width * 0.5 + width * 0.07;
+function Hero({ progressRef }: { progressRef: PRef }) {
+  const { width, height } = useVP();
+  const big = Math.min(width * 0.046, 0.52);
+  const lh = big * 1.02;
+  const x = -width / 2 + width * 0.08;
+  const top = lh * 0.95; // headline top
   return (
-    <group>
-      <GlobeGroup scale={Math.min(width, height) * 0.38} position={[width * 0.34, 0, -2.4]} />
-      <Text font={DISPLAY} fontSize={big * 0.42} color={RED} anchorX="left" position={[x, big * 1.4, 0]} letterSpacing={0.04}>
-        TOTAL LOGISTICS — KLANG, MY
+    <group position={[0, height * 0.06, 0]}>
+      <GlobeGroup progressRef={progressRef} scale={Math.min(width, height) * 0.36} position={[width * 0.33, -height * 0.04, -2.6]} />
+      <Eyebrow x={x} y={top + lh * 0.7}>Total Logistics · Est. 2012 · Klang, MY</Eyebrow>
+      <Text font={DISPLAY} fontSize={big} color={WHITE} anchorX="left" anchorY="top" lineHeight={1.02} position={[x, top, 0]}
+        outlineWidth={big * 0.012} outlineColor={WHITE} letterSpacing={-0.04} maxWidth={width * 0.6}>
+        {"Guiding your\ncargo"}
       </Text>
-      <Text font={DISPLAY} fontSize={big} color="#ffffff" anchorX="left" lineHeight={1.02} position={[x, big * 0.4, 0]}
-        outlineWidth={big * 0.01} outlineColor="#ffffff" letterSpacing={-0.03} maxWidth={width * 0.5}>
-        Guiding your cargo
-      </Text>
-      <Text font={DISPLAY} fontSize={big} color={RED} anchorX="left" position={[x, -big * 0.72, 0]}
-        outlineWidth={big * 0.01} outlineColor={RED} letterSpacing={-0.03}>
+      <Text font={DISPLAY} fontSize={big} color={RED} anchorX="left" anchorY="top" position={[x, top - 2 * lh - lh * 0.08, 0]}
+        outlineWidth={big * 0.012} outlineColor={RED} letterSpacing={-0.04}>
         with respect.
       </Text>
-      <Text font={BODY} fontSize={big * 0.2} color={INK} anchorX="left" maxWidth={width * 0.4} position={[x, -big * 1.55, 0]} lineHeight={1.4}>
-        Your end-to-end logistics partner for Malaysia and the world — sea, air and land freight,
-        delivered with a measurable commitment to sustainable practice.
+      <Text font={BODY} fontSize={width * 0.0145} color={INK} anchorX="left" anchorY="top" maxWidth={width * 0.33}
+        position={[x, top - 3 * lh - big * 0.4, 0]} lineHeight={1.5}>
+        Your end-to-end logistics partner for Malaysia and the world — sea, air and land freight.
       </Text>
-      <Button3D label="Get a quote" onClick={() => open(WA_QUOTE)} position={[x + big * 1.1, -big * 2.5, 0.2]}
-        width={big * 2.4} height={big * 0.6} />
+      <Button3D label="Get a quote" onClick={() => open(WA_QUOTE)} position={[x + big * 1.15, top - 4.7 * lh, 0.2]} width={big * 2.3} height={big * 0.56} />
     </group>
   );
 }
 
-function Stats() {
-  const { width, height } = useViewport();
-  const y = -height;
+function Stats({ page }: { page: number }) {
+  const { width, height } = useVP();
+  const x = -width / 2 + width * 0.08;
   const colW = (width * 0.84) / 4;
-  const startX = -((4 - 1) / 2) * colW;
+  const sx = -((4 - 1) / 2) * colW;
   return (
-    <group position={[0, y, 0]}>
-      <Text font={DISPLAY} fontSize={Math.min(width * 0.045, 0.55)} color="#ffffff" anchorX="center"
-        position={[0, height * 0.26, 0]} outlineWidth={0.005} outlineColor="#ffffff" letterSpacing={-0.03} textAlign="center" maxWidth={width * 0.8}>
+    <group position={[0, -page * height, 0]}>
+      <Eyebrow x={x} y={height * 0.3}>About Power Star</Eyebrow>
+      <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
+        position={[x, height * 0.24, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.62} lineHeight={1.02}>
         Fluctuating demand won&apos;t slow you down.
       </Text>
       {STATS.map((s, i) => (
-        <group key={s.cap} position={[startX + i * colW, -height * 0.02, 0]}>
-          <Text font={DISPLAY} fontSize={colW * 0.42} color={RED} anchorX="center" anchorY="middle" letterSpacing={-0.03}>
+        <group key={s.cap} position={[sx + i * colW, -height * 0.08, 0]}>
+          <Text font={DISPLAY} fontSize={colW * 0.32} color={i === 0 ? RED : WHITE} anchorX="center" anchorY="middle" letterSpacing={-0.035} outlineWidth={colW * 0.004} outlineColor={i === 0 ? RED : WHITE}>
             {s.num + s.sup}
           </Text>
-          <Text font={BODY} fontSize={colW * 0.085} color={INK} anchorX="center" anchorY="top" position={[0, -colW * 0.3, 0]} maxWidth={colW * 0.85} textAlign="center" lineHeight={1.3}>
+          <Text font={BODY} fontSize={colW * 0.082} color={INK} anchorX="center" anchorY="top" position={[0, -colW * 0.28, 0]} maxWidth={colW * 0.82} textAlign="center" lineHeight={1.35}>
             {s.cap}
           </Text>
         </group>
@@ -256,32 +208,33 @@ function Stats() {
   );
 }
 
-function Services() {
-  const { width, height } = useViewport();
-  const y = -height * 2;
-  const items = ["Sea Freight", "Air Freight", "Domestic", "Warehouse", "Cargo Insurance", "Halal Logistics"];
-  const cols = 3;
-  const cw = (width * 0.78) / cols;
-  const ch = cw * 0.6;
-  const startX = -((cols - 1) / 2) * cw;
+function Services({ page }: { page: number }) {
+  const { width, height } = useVP();
+  const x = -width / 2 + width * 0.08;
+  const cols = 4;
+  const cw = (width * 0.84) / cols;
+  const ch = cw * 0.74;
+  const sx = -((cols - 1) / 2) * cw;
   return (
-    <group position={[0, y, 0]}>
-      <Text font={DISPLAY} fontSize={Math.min(width * 0.05, 0.6)} color="#ffffff" anchorX="center"
-        position={[0, height * 0.3, 0]} outlineWidth={0.006} outlineColor="#ffffff" letterSpacing={-0.03}>
+    <group position={[0, -page * height, 0]}>
+      <Eyebrow x={x} y={height * 0.34}>Services</Eyebrow>
+      <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
+        position={[x, height * 0.28, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03}>
         All your logistics. One roof.
       </Text>
-      {items.map((label, i) => {
-        const col = i % cols;
-        const row = Math.floor(i / cols);
-        const px = startX + col * cw;
-        const py = height * 0.05 - row * (ch + cw * 0.08);
+      {SERVICES.map((s, i) => {
+        const col = i % cols, row = Math.floor(i / cols);
+        const px = sx + col * cw, py = -height * 0.04 - row * (ch + cw * 0.1);
         return (
-          <group key={label} position={[px, py, 0]}>
-            <RoundedBox args={[cw * 0.9, ch, 0.06]} radius={0.06} smoothness={3}>
-              <meshStandardMaterial color="#0e141f" roughness={0.6} metalness={0.1} />
+          <group key={s.t} position={[px, py, 0]}>
+            <RoundedBox args={[cw * 0.92, ch, 0.05]} radius={0.06} smoothness={3}>
+              <meshStandardMaterial color={CARD} roughness={0.7} metalness={0.05} />
             </RoundedBox>
-            <Text font={DISPLAY} fontSize={cw * 0.095} color="#ffffff" anchorX="center" position={[0, 0, 0.05]}>
-              {label}
+            <Text font={DISPLAY} fontSize={cw * 0.085} color={WHITE} anchorX="left" anchorY="top" position={[-cw * 0.38, ch * 0.32, 0.04]} maxWidth={cw * 0.78} letterSpacing={-0.02} lineHeight={1.05}>
+              {s.t}
+            </Text>
+            <Text font={BODY} fontSize={cw * 0.055} color={INK} anchorX="left" anchorY="top" position={[-cw * 0.38, -ch * 0.02, 0.04]} maxWidth={cw * 0.8} lineHeight={1.4}>
+              {s.d}
             </Text>
           </group>
         );
@@ -290,29 +243,50 @@ function Services() {
   );
 }
 
-function WhyUs() {
-  const { width, height } = useViewport();
-  const y = -height * 3;
-  const x = -width * 0.5 + width * 0.08;
+function WhyUs({ page }: { page: number }) {
+  const { width, height } = useVP();
+  const x = -width / 2 + width * 0.08;
   return (
-    <group position={[0, y, 0]}>
-      <Text font={DISPLAY} fontSize={Math.min(width * 0.045, 0.5)} color="#ffffff" anchorX="left"
-        position={[x, height * 0.36, 0]} outlineWidth={0.005} outlineColor="#ffffff" letterSpacing={-0.03} maxWidth={width * 0.6}>
+    <group position={[0, -page * height, 0]}>
+      <Eyebrow x={x} y={height * 0.36}>Why Choose Us</Eyebrow>
+      <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
+        position={[x, height * 0.3, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.7}>
         We move better — measurably.
       </Text>
       {WHY.map((w, i) => {
-        const titleSize = width * 0.026;
-        const py = height * 0.16 - i * height * 0.22;
+        const ts = width * 0.022;
+        const py = height * 0.1 - i * height * 0.22;
         return (
           <group key={w.n} position={[x, py, 0]}>
-            <Text font={BODY} fontSize={width * 0.015} color={RED} anchorX="left" anchorY="top" position={[0, 0, 0]}>
-              {w.n}
+            <Text font={BODY} fontSize={width * 0.015} color={RED} anchorX="left" anchorY="top" position={[0, 0, 0]} letterSpacing={0.1}>{w.n}</Text>
+            <Text font={DISPLAY} fontSize={ts} color={WHITE} anchorX="left" anchorY="top" position={[width * 0.055, 0, 0]} letterSpacing={-0.02}>{w.h}</Text>
+            <Text font={BODY} fontSize={width * 0.0145} color={INK} anchorX="left" anchorY="top" position={[width * 0.055, -ts * 1.5, 0]} maxWidth={width * 0.52} lineHeight={1.45}>{w.p}</Text>
+          </group>
+        );
+      })}
+    </group>
+  );
+}
+
+function Faq({ page }: { page: number }) {
+  const { width, height } = useVP();
+  const x = -width / 2 + width * 0.08;
+  return (
+    <group position={[0, -page * height, 0]}>
+      <Eyebrow x={x} y={height * 0.38}>FAQ</Eyebrow>
+      <Text font={DISPLAY} fontSize={Math.min(width * 0.036, 0.44)} color={WHITE} anchorX="left" anchorY="top"
+        position={[x, height * 0.32, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.8}>
+        The questions shippers actually ask.
+      </Text>
+      {FAQ.map((f, i) => {
+        const py = height * 0.13 - i * height * 0.155;
+        return (
+          <group key={f.q} position={[x, py, 0]}>
+            <Text font={DISPLAY} fontSize={width * 0.0185} color={WHITE} anchorX="left" anchorY="top" position={[0, 0, 0]} maxWidth={width * 0.82} letterSpacing={-0.015} lineHeight={1.1}>
+              {f.q}
             </Text>
-            <Text font={DISPLAY} fontSize={titleSize} color="#ffffff" anchorX="left" anchorY="top" position={[width * 0.055, 0, 0]} letterSpacing={-0.02}>
-              {w.h}
-            </Text>
-            <Text font={BODY} fontSize={width * 0.0145} color={INK} anchorX="left" anchorY="top" position={[width * 0.055, -titleSize * 1.5, 0]} maxWidth={width * 0.5} lineHeight={1.4}>
-              {w.p}
+            <Text font={BODY} fontSize={width * 0.0125} color={INK} anchorX="left" anchorY="top" position={[0, -width * 0.026, 0]} maxWidth={width * 0.8} lineHeight={1.4}>
+              {f.a}
             </Text>
           </group>
         );
@@ -321,44 +295,38 @@ function WhyUs() {
   );
 }
 
-function FinalCta() {
-  const { width, height } = useViewport();
-  const big = Math.min(width * 0.08, 1.0);
+function Contact({ page }: { page: number }) {
+  const { width, height } = useVP();
+  const big = Math.min(width * 0.052, 0.62);
   return (
-    <group position={[0, -height * (PAGES - 1), 0]}>
-      <Text font={DISPLAY} fontSize={big} color="#ffffff" anchorX="center" position={[0, big * 0.7, 0]}
-        outlineWidth={0.01} outlineColor="#ffffff" letterSpacing={-0.035} textAlign="center" maxWidth={width * 0.8} lineHeight={1.0}>
+    <group position={[0, -page * height, 0]}>
+      <Text font={DISPLAY} fontSize={big} color={WHITE} anchorX="center" anchorY="middle" position={[0, big * 0.95, 0]}
+        outlineWidth={big * 0.012} outlineColor={WHITE} letterSpacing={-0.035} textAlign="center" maxWidth={width * 0.7} lineHeight={1.0}>
         Let&apos;s get your goods moving.
       </Text>
-      <Button3D label="Get a quote" onClick={() => open(WA_QUOTE)} position={[-big * 1.85, -big * 0.5, 0.2]} width={big * 2.6} height={big * 0.6} />
-      <Button3D label={TEL} onClick={() => open(TEL_HREF)} position={[big * 1.75, -big * 0.5, 0.2]} width={big * 2.7} height={big * 0.6} color="#0e141f" text={GOLD} />
+      <Text font={BODY} fontSize={width * 0.015} color={INK} anchorX="center" anchorY="middle" position={[0, -big * 0.1, 0]} maxWidth={width * 0.5} textAlign="center" lineHeight={1.5}>
+        {ADDRESS}
+      </Text>
+      <Text font={BODY} fontSize={width * 0.016} color={GOLD} anchorX="center" anchorY="middle" position={[0, -big * 0.5, 0]} letterSpacing={0.02}>
+        {`${EMAIL}    ·    ${TEL}`}
+      </Text>
+      <Button3D label="Get a quote" onClick={() => open(WA_QUOTE)} position={[-big * 1.5, -big * 1.15, 0.2]} width={big * 2.5} height={big * 0.6} />
+      <Button3D label="Call us" onClick={() => open(TEL_HREF)} position={[big * 1.5, -big * 1.15, 0.2]} width={big * 2.2} height={big * 0.6} color={CARD} text={GOLD} />
     </group>
   );
 }
 
-function Rig() {
-  const scroll = useScroll();
-  useFrame((state) => {
-    const o = scroll.offset;
-    state.camera.position.x = Math.sin(o * Math.PI) * 0.12;
-    state.camera.lookAt(0, state.camera.position.y, 0);
+function World({ progressRef, pages, children }: { progressRef: PRef; pages: number; children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  const { height } = useVP();
+  useFrame(() => {
+    if (ref.current) ref.current.position.y = (progressRef.current ?? 0) * (pages - 1) * height;
   });
-  return null;
+  return <group ref={ref}>{children}</group>;
 }
 
-export function WebGLSite() {
+export function WebGLSite({ progressRef, pages }: { progressRef: PRef; pages: number }) {
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100dvh",
-        background: "#05070d",
-        overflow: "hidden",
-      }}
-    >
     <Canvas
       gl={{ antialias: true }}
       dpr={[1, 2]}
@@ -366,32 +334,29 @@ export function WebGLSite() {
       resize={{ debounce: 0 }}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color("#05070d");
-        scene.fog = new THREE.FogExp2("#05070d", 0.05);
+        scene.fog = new THREE.FogExp2("#05070d", 0.045);
       }}
       style={{ width: "100%", height: "100%", display: "block" }}
     >
-      <ambientLight intensity={0.35} />
+      <ambientLight intensity={0.4} />
       <directionalLight position={[4, 3, 5]} intensity={2.4} color="#fff4e6" />
-      <Stars radius={80} depth={40} count={3000} factor={4} saturation={0} fade speed={0.3} />
+      <Stars radius={80} depth={40} count={2600} factor={4} saturation={0} fade speed={0.25} />
       <Suspense fallback={null}>
-        <ScrollControls pages={PAGES} damping={0.18}>
-          <Rig />
-          <Nav />
-          <Scroll>
-            <Hero />
-            <Stats />
-            <Services />
-            <WhyUs />
-            <FinalCta />
-          </Scroll>
-        </ScrollControls>
+        <Nav />
+        <World progressRef={progressRef} pages={pages}>
+          <Hero progressRef={progressRef} />
+          <Stats page={1} />
+          <Services page={2} />
+          <WhyUs page={3} />
+          <Faq page={4} />
+          <Contact page={5} />
+        </World>
       </Suspense>
       <EffectComposer>
-        <Bloom mipmapBlur intensity={0.9} luminanceThreshold={0.55} luminanceSmoothing={0.2} />
-        <Vignette offset={0.2} darkness={0.85} />
+        <Bloom mipmapBlur intensity={0.7} luminanceThreshold={0.6} luminanceSmoothing={0.2} />
+        <Vignette offset={0.22} darkness={0.82} />
       </EffectComposer>
       <AdaptiveDpr pixelated />
     </Canvas>
-    </div>
   );
 }
