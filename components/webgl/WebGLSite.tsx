@@ -182,13 +182,13 @@ function Hero({ progressRef }: { progressRef: PRef }) {
   );
 }
 
-function Stats({ page }: { page: number }) {
+function Stats() {
   const { width, height } = useVP();
   const x = -width / 2 + width * 0.08;
   const colW = (width * 0.84) / 4;
   const sx = -((4 - 1) / 2) * colW;
   return (
-    <group position={[0, -page * height, 0]}>
+    <group>
       <Eyebrow x={x} y={height * 0.3}>About Power Star</Eyebrow>
       <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
         position={[x, height * 0.24, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.62} lineHeight={1.02}>
@@ -208,7 +208,7 @@ function Stats({ page }: { page: number }) {
   );
 }
 
-function Services({ page }: { page: number }) {
+function Services() {
   const { width, height } = useVP();
   const x = -width / 2 + width * 0.08;
   const cols = 4;
@@ -216,7 +216,7 @@ function Services({ page }: { page: number }) {
   const ch = cw * 0.74;
   const sx = -((cols - 1) / 2) * cw;
   return (
-    <group position={[0, -page * height, 0]}>
+    <group>
       <Eyebrow x={x} y={height * 0.34}>Services</Eyebrow>
       <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
         position={[x, height * 0.28, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03}>
@@ -243,11 +243,11 @@ function Services({ page }: { page: number }) {
   );
 }
 
-function WhyUs({ page }: { page: number }) {
+function WhyUs() {
   const { width, height } = useVP();
   const x = -width / 2 + width * 0.08;
   return (
-    <group position={[0, -page * height, 0]}>
+    <group>
       <Eyebrow x={x} y={height * 0.36}>Why Choose Us</Eyebrow>
       <Text font={DISPLAY} fontSize={Math.min(width * 0.038, 0.46)} color={WHITE} anchorX="left" anchorY="top"
         position={[x, height * 0.3, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.7}>
@@ -268,11 +268,11 @@ function WhyUs({ page }: { page: number }) {
   );
 }
 
-function Faq({ page }: { page: number }) {
+function Faq() {
   const { width, height } = useVP();
   const x = -width / 2 + width * 0.08;
   return (
-    <group position={[0, -page * height, 0]}>
+    <group>
       <Eyebrow x={x} y={height * 0.38}>FAQ</Eyebrow>
       <Text font={DISPLAY} fontSize={Math.min(width * 0.036, 0.44)} color={WHITE} anchorX="left" anchorY="top"
         position={[x, height * 0.32, 0]} outlineWidth={0.004} outlineColor={WHITE} letterSpacing={-0.03} maxWidth={width * 0.8}>
@@ -295,11 +295,11 @@ function Faq({ page }: { page: number }) {
   );
 }
 
-function Contact({ page }: { page: number }) {
+function Contact() {
   const { width, height } = useVP();
   const big = Math.min(width * 0.052, 0.62);
   return (
-    <group position={[0, -page * height, 0]}>
+    <group>
       <Text font={DISPLAY} fontSize={big} color={WHITE} anchorX="center" anchorY="middle" position={[0, big * 0.95, 0]}
         outlineWidth={big * 0.012} outlineColor={WHITE} letterSpacing={-0.035} textAlign="center" maxWidth={width * 0.7} lineHeight={1.0}>
         Let&apos;s get your goods moving.
@@ -326,11 +326,37 @@ function SyncSize({ width, height }: { width: number; height: number }) {
   return null;
 }
 
-function World({ progressRef, pages, children }: { progressRef: PRef; pages: number; children: React.ReactNode }) {
+/* Each section "arrives" in 3D as it centers: scales up + pushes forward in Z,
+   recedes + shrinks as it leaves. This is what makes the scroll feel spatial. */
+function SceneSection({ page, progressRef, pages, children }: { page: number; progressRef: PRef; pages: number; children: React.ReactNode }) {
   const ref = useRef<THREE.Group>(null);
   const { height } = useVP();
   useFrame(() => {
-    if (ref.current) ref.current.position.y = (progressRef.current ?? 0) * (pages - 1) * height;
+    const g = ref.current;
+    if (!g) return;
+    const p = progressRef.current ?? 0;
+    const t = p * (pages - 1) - page; // 0 = perfectly centered
+    const a = Math.min(1, Math.abs(t));
+    const e = 1 - a * a * (3 - 2 * a); // 1 centered -> 0 a page away (smoothstep)
+    g.position.set(0, -page * height, THREE.MathUtils.lerp(-2.8, 0, e));
+    const s = THREE.MathUtils.lerp(0.8, 1, e);
+    g.scale.set(s, s, s);
+  });
+  return <group ref={ref}>{children}</group>;
+}
+
+function World({ progressRef, pages, children }: { progressRef: PRef; pages: number; children: React.ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  const { height } = useVP();
+  const camera = useThree((s) => s.camera);
+  useFrame(() => {
+    const p = progressRef.current ?? 0;
+    if (ref.current) ref.current.position.y = p * (pages - 1) * height;
+    // subtle dolly: pull back between sections, push in as one centers
+    const m = p * (pages - 1);
+    const centerness = 1 - 2 * Math.abs(m - Math.round(m));
+    const targetZ = 5.0 + (1 - centerness) * 0.7;
+    camera.position.z += (targetZ - camera.position.z) * 0.08;
   });
   return <group ref={ref}>{children}</group>;
 }
@@ -355,12 +381,24 @@ export function WebGLSite({ progressRef, pages, width, height }: { progressRef: 
       <Suspense fallback={null}>
         <Nav />
         <World progressRef={progressRef} pages={pages}>
-          <Hero progressRef={progressRef} />
-          <Stats page={1} />
-          <Services page={2} />
-          <WhyUs page={3} />
-          <Faq page={4} />
-          <Contact page={5} />
+          <SceneSection page={0} progressRef={progressRef} pages={pages}>
+            <Hero progressRef={progressRef} />
+          </SceneSection>
+          <SceneSection page={1} progressRef={progressRef} pages={pages}>
+            <Stats />
+          </SceneSection>
+          <SceneSection page={2} progressRef={progressRef} pages={pages}>
+            <Services />
+          </SceneSection>
+          <SceneSection page={3} progressRef={progressRef} pages={pages}>
+            <WhyUs />
+          </SceneSection>
+          <SceneSection page={4} progressRef={progressRef} pages={pages}>
+            <Faq />
+          </SceneSection>
+          <SceneSection page={5} progressRef={progressRef} pages={pages}>
+            <Contact />
+          </SceneSection>
         </World>
       </Suspense>
       <EffectComposer>
