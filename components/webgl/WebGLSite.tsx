@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Text, Stars, useTexture, RoundedBox, AdaptiveDpr } from "@react-three/drei";
+import { Text, Stars, useTexture, RoundedBox } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import {
@@ -316,28 +316,13 @@ function Contact({ page }: { page: number }) {
   );
 }
 
-/* Force the renderer to the true window size on mount + a few frames after,
-   so it never gets stuck at a half/transient measurement until the first resize. */
-function ForceResize() {
+/* Force the renderer to EXACTLY the parent's known pixel size (passed from
+   React state), so it never depends on R3F measuring a fixed/vw element. */
+function SyncSize({ width, height }: { width: number; height: number }) {
   const setSize = useThree((s) => s.setSize);
   useEffect(() => {
-    const fix = () => setSize(window.innerWidth, window.innerHeight);
-    fix();
-    const r1 = requestAnimationFrame(fix);
-    const r2 = requestAnimationFrame(() => requestAnimationFrame(fix));
-    const t1 = setTimeout(fix, 80);
-    const t2 = setTimeout(fix, 350);
-    window.addEventListener("resize", fix);
-    window.addEventListener("orientationchange", fix);
-    return () => {
-      cancelAnimationFrame(r1);
-      cancelAnimationFrame(r2);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      window.removeEventListener("resize", fix);
-      window.removeEventListener("orientationchange", fix);
-    };
-  }, [setSize]);
+    if (width > 0 && height > 0) setSize(width, height);
+  }, [width, height, setSize]);
   return null;
 }
 
@@ -350,20 +335,20 @@ function World({ progressRef, pages, children }: { progressRef: PRef; pages: num
   return <group ref={ref}>{children}</group>;
 }
 
-export function WebGLSite({ progressRef, pages }: { progressRef: PRef; pages: number }) {
+export function WebGLSite({ progressRef, pages, width, height }: { progressRef: PRef; pages: number; width: number; height: number }) {
   return (
     <Canvas
       gl={{ antialias: true }}
-      dpr={[1, 2]}
+      dpr={[1, 1.5]}
       camera={{ position: [0, 0, 5], fov: 42 }}
-      resize={{ debounce: 0 }}
+      resize={{ offsetSize: true }}
       onCreated={({ scene }) => {
         scene.background = new THREE.Color("#05070d");
         scene.fog = new THREE.FogExp2("#05070d", 0.045);
       }}
-      style={{ width: "100%", height: "100%", display: "block" }}
+      style={{ width: `${width}px`, height: `${height}px`, display: "block" }}
     >
-      <ForceResize />
+      <SyncSize width={width} height={height} />
       <ambientLight intensity={0.4} />
       <directionalLight position={[4, 3, 5]} intensity={2.4} color="#fff4e6" />
       <Stars radius={80} depth={40} count={2600} factor={4} saturation={0} fade speed={0.25} />
@@ -382,7 +367,6 @@ export function WebGLSite({ progressRef, pages }: { progressRef: PRef; pages: nu
         <Bloom mipmapBlur intensity={0.7} luminanceThreshold={0.6} luminanceSmoothing={0.2} />
         <Vignette offset={0.22} darkness={0.82} />
       </EffectComposer>
-      <AdaptiveDpr pixelated />
     </Canvas>
   );
 }
